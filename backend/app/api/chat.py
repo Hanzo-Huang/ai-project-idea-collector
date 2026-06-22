@@ -1,0 +1,31 @@
+from fastapi import APIRouter, Depends
+from openai import AsyncOpenAI
+from sqlalchemy import or_, select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.database import get_db
+from app.models import Project
+from app.schemas import ChatCitation, ChatRequest, ChatResponse
+from app.services.settings import resolved_settings
+
+router = APIRouter(prefix="/chat", tags=["chat"])
+
+
+@router.post("", response_model=ChatResponse)
+async def chat(payload: ChatRequest, db: AsyncSession = Depends(get_db)):
+    words = [w for w in payload.message.split() if len(w) > 3][:8]
+    stmt = select(Project).where(Project.status == "ready")
+    if words: stmt = stmt.where(or_(*[Project.title.ilike(f"%{w}%") for w in words], *[Project.summary.ilike(f"%{w}%") for w in words]))
+    projects = (await db.execute(stmt.order_by(Project.idea_value.desc()).limit(8))).scalars().all()
+    if not projects: projects = (await db.execute(select(Project).where(Project.status == "ready").order_by(Project.idea_value.desc()).limit(8))).scalars().all()
+    citations = [ChatCitation(id=p.id, title=p.title, url=p.url) for p in projects]
+    context = "\n".join(f"[{i+1}] {p.title}: {p.summary} URL: {p.url}" for i, p in enumerate(projects))
+    settings = await resolved_settings(db)
+    if not settings.get("llm_api_key"):
+        answer = "Here are the closest projects in your collection:\n\n" + "\n".join(f"- {p.title}: {p.summary[:180]} ({p.url})" for p in projects)
+        return ChatResponse(answer=answer, citations=citations)
+    client = AsyncOpenAI(api_key=str(settings["llm_api_key"]), base_url=str(settings["llm_base_url"]))
+    messages = [{"role": "system", "content": "Answer using only the supplied project context. Cite sources as [1], [2]. Suggest concrete ideas when asked."}, *payload.history[-10:], {"role": "user", "content": f"PROJECT CONTEXT:\n{context}\n\nQUESTION: {payload.message}"}]
+    response = await client.chat.completions.create(model=str(settings["llm_model"]), messages=messages, temperature=0.3)
+    return ChatResponse(answer=response.choices[0].message.content or "", citations=citations)
+
