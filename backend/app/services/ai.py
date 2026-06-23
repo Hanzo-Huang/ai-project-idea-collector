@@ -1,41 +1,29 @@
 import json
-import re
 
 import httpx
 from openai import AsyncOpenAI
 
-from app.services.rk import rk_signals
+from app.services.analysis import fallback_analysis, normalize_analysis
 
 PROJECT_TYPES = ["Agent", "Model", "Application", "Dataset", "Tool / Framework", "Hardware Demo", "Tutorial / Blog", "AI Event / Trend"]
 
 
-def fallback_analysis(title: str, text: str, extra: dict) -> dict:
-    content = f"{title} {text}".lower()
-    project_type, subtype = "Application", "Other"
-    rules = [
-        ("agent", "Agent", "Workflow Agent"), ("dataset", "Dataset", "Other"),
-        ("framework", "Tool / Framework", "Other"), ("tutorial", "Tutorial / Blog", "Other"),
-        ("llm", "Model", "LLM"), ("vlm", "Model", "VLM"), ("embedding", "Model", "Embedding Model"),
-        ("robot", "Hardware Demo", "Robotics Agent"), ("yolo", "Application", "YOLO trained model"),
-    ]
-    for needle, kind, sub in rules:
-        if needle in content: project_type, subtype = kind, sub; break
-    tags = list(dict.fromkeys([*(extra.get("topics") or []), *re.findall(r"\b(ai|llm|rag|agent|robotics|vision|yolo|edge|python|typescript)\b", content)]))[:8]
-    summary = text.strip().replace("\n", " ")[:500] or f"{title} is a collected AI project."
-    return {"summary": summary, "project_type": project_type, "subtype": subtype, "tags": tags or ["ai"], "difficulty": "Intermediate", "hardware_requirements": [], "software_requirements": [extra.get("language")] if extra.get("language") else [], "idea_value": 6.5, "inspired_ideas": [f"Adapt {title} to an RK3576/RK3588 edge AI workflow", f"Create a board-ready demo based on {title}"], **rk_signals(title, text, extra)}
-
-
 async def analyze_project(title: str, description: str, content: str, extra: dict, settings: dict) -> dict:
+    fallback = fallback_analysis(title, description or content, extra)
     if not settings.get("llm_api_key"):
-        return fallback_analysis(title, description or content, extra)
+        return fallback
     client = AsyncOpenAI(api_key=str(settings["llm_api_key"]), base_url=str(settings["llm_base_url"]))
     prompt = f'''{settings.get("classification_prompt", "Classify this AI project.")}
 Return strict JSON with: summary, project_type, subtype, tags (array), difficulty (Beginner/Intermediate/Advanced), hardware_requirements (array), software_requirements (array), idea_value (0-10), inspired_ideas (array), target_platforms (array), rk_compatibility (0-10), adaptation_notes (array), big_event_relevance (boolean).
 Allowed project types: {PROJECT_TYPES}.
 Target boards: RK3576 and RK3588. Score rk_compatibility by how useful this is for Rockchip edge AI/NPU demos, board tutorials, product ideas, or ecosystem tracking. For AI events, explain how the event could inspire board content.
 Title: {title}\nDescription: {description}\nContent: {content[:12000]}'''
-    response = await client.chat.completions.create(model=str(settings["classification_model"]), messages=[{"role": "user", "content": prompt}], response_format={"type": "json_object"}, temperature=0.2)
-    return json.loads(response.choices[0].message.content or "{}")
+    try:
+        response = await client.chat.completions.create(model=str(settings["classification_model"]), messages=[{"role": "user", "content": prompt}], response_format={"type": "json_object"}, temperature=0.2)
+        analysis = json.loads(response.choices[0].message.content or "{}")
+        return normalize_analysis(analysis if isinstance(analysis, dict) else {}, fallback)
+    except Exception:
+        return fallback
 
 
 async def embed_text(text: str, settings: dict) -> list[float] | None:
