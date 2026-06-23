@@ -12,7 +12,7 @@ async def analyze_project(title: str, description: str, content: str, extra: dic
     fallback = fallback_analysis(title, description or content, extra)
     if not settings.get("llm_api_key"):
         return fallback
-    client = AsyncOpenAI(api_key=str(settings["llm_api_key"]), base_url=str(settings["llm_base_url"]))
+    client = AsyncOpenAI(api_key=str(settings["llm_api_key"]), base_url=str(settings["llm_base_url"]), timeout=30)
     prompt = f'''{settings.get("classification_prompt", "Classify this AI project.")}
 Return strict JSON with: summary, project_type, subtype, tags (array), difficulty (Beginner/Intermediate/Advanced), hardware_requirements (array), software_requirements (array), idea_value (0-10), inspired_ideas (array), target_platforms (array), rk_compatibility (0-10), adaptation_notes (array), big_event_relevance (boolean).
 Allowed project types: {PROJECT_TYPES}.
