@@ -8,6 +8,9 @@ pydantic-settings==2.7.0
 httpx==0.28.1
 beautifulsoup4==4.12.3
 feedparser==6.0.11
+# NumPy 2.x Linux wheels require x86-64-v2 on amd64. Pin 1.26.x so the
+# backend can run on older VPS CPUs while qdrant-client imports numpy.
+numpy==1.26.4
 qdrant-client==1.12.1
 openai==1.59.3
 apscheduler==3.11.0
