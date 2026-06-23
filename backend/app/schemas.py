@@ -49,6 +49,21 @@ class ProjectCreate(BaseModel):
     url: HttpUrl
 
 
+class ProjectUpdate(BaseModel):
+    title: str | None = Field(default=None, min_length=1, max_length=500)
+    description: str | None = None
+    summary: str | None = None
+    project_type: str | None = None
+    subtype: str | None = None
+    difficulty: str | None = None
+    hardware_requirements: list[str] | None = None
+    software_requirements: list[str] | None = None
+    inspired_ideas: list[str] | None = None
+    idea_value: float | None = Field(default=None, ge=0, le=10)
+    extra: dict[str, Any] | None = None
+    tags: list[str] | None = None
+
+
 class SourceBase(BaseModel):
     name: str = Field(min_length=1, max_length=200)
     type: Literal["github", "github_search", "hackster", "huggingface", "rss", "blog", "youtube"]

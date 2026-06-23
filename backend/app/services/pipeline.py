@@ -7,6 +7,7 @@ from sqlalchemy.orm import selectinload
 
 from app.collectors import collector_for_url
 from app.collectors.base import CollectedProject
+from app.database import SessionLocal
 from app.models import Embedding, MetricHistory, Project, RawDocument, Tag
 from app.services.ai import analyze_project, embed_text
 from app.services.settings import resolved_settings
@@ -20,13 +21,38 @@ async def ingest_url(db: AsyncSession, url: str, source_id: uuid.UUID | None = N
     project = Project(url=url, title=url, source_id=source_id, status="processing")
     db.add(project)
     await db.commit(); await db.refresh(project)
-    try:
-        item = await collector_for_url(url).collect_url(url)
-        await enrich_project(db, project, item)
-    except Exception as exc:
-        project.status = "failed"; project.error = str(exc)[:2000]
-        await db.commit(); await db.refresh(project)
+    await enrich_project_by_id(project.id)
+    await db.refresh(project)
     return project
+
+
+async def queue_url(db: AsyncSession, url: str, source_id: uuid.UUID | None = None) -> Project:
+    existing = (await db.execute(select(Project).where(Project.url == url))).scalar_one_or_none()
+    if existing:
+        return existing
+    project = Project(url=url, title=url, source_id=source_id, status="pending")
+    db.add(project)
+    await db.commit(); await db.refresh(project)
+    return project
+
+
+async def enrich_project_by_id(project_id: uuid.UUID) -> None:
+    async with SessionLocal() as db:
+        project = await db.get(Project, project_id)
+        if not project:
+            return
+        project.status = "processing"; project.error = None
+        await db.commit(); await db.refresh(project)
+        try:
+            item = await collector_for_url(project.url).collect_url(project.url)
+            await enrich_project(db, project, item)
+        except Exception as exc:
+            project.status = "failed"; project.error = str(exc)[:2000]
+            await db.commit()
+
+
+async def regenerate_project(project_id: uuid.UUID) -> None:
+    await enrich_project_by_id(project_id)
 
 
 async def ingest_collected(db: AsyncSession, item: CollectedProject, source_id: uuid.UUID | None = None) -> tuple[Project, bool]:
@@ -63,6 +89,8 @@ async def enrich_project(db: AsyncSession, project: Project, item: CollectedProj
         "big_event_relevance": analysis.get("big_event_relevance", False),
     }
     project.status = "ready"; project.error = None
+    project.tags.clear()
+    project.documents.clear()
     project.documents.append(RawDocument(content=item.content, metadata_={"source_type": item.source_type}))
     for name in analysis.get("tags", [])[:12]:
         clean = str(name).strip().lower()[:100]

@@ -1,24 +1,32 @@
 import uuid
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from qdrant_client import AsyncQdrantClient
 from sqlalchemy import desc, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.database import get_db
 from app.models import Project, Tag
-from app.schemas import ProjectCreate, ProjectList, ProjectOut
+from app.schemas import ProjectCreate, ProjectList, ProjectOut, ProjectUpdate
 from app.services.ai import embed_text
-from app.services.pipeline import COLLECTION, ingest_url
+from app.services.pipeline import COLLECTION, enrich_project_by_id, queue_url, regenerate_project
 from app.services.settings import resolved_settings
 
 router = APIRouter(prefix="/projects", tags=["projects"])
 
 
+async def loaded_project(db: AsyncSession, project_id: uuid.UUID) -> Project | None:
+    return (await db.execute(select(Project).options(selectinload(Project.tags)).where(Project.id == project_id))).scalar_one_or_none()
+
+
 @router.post("", response_model=ProjectOut, status_code=201)
-async def add_project(payload: ProjectCreate, db: AsyncSession = Depends(get_db)):
-    return await ingest_url(db, str(payload.url))
+async def add_project(payload: ProjectCreate, background_tasks: BackgroundTasks, db: AsyncSession = Depends(get_db)):
+    project = await queue_url(db, str(payload.url))
+    if project.status in {"pending", "failed"}:
+        background_tasks.add_task(enrich_project_by_id, project.id)
+    return await loaded_project(db, project.id)
 
 
 @router.get("", response_model=ProjectList)
@@ -61,9 +69,41 @@ async def list_projects(
 
 @router.get("/{project_id}", response_model=ProjectOut)
 async def project_detail(project_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
-    project = await db.get(Project, project_id)
+    project = await loaded_project(db, project_id)
     if not project: raise HTTPException(404, "Project not found")
     return project
+
+
+@router.patch("/{project_id}", response_model=ProjectOut)
+async def update_project(project_id: uuid.UUID, payload: ProjectUpdate, db: AsyncSession = Depends(get_db)):
+    project = await loaded_project(db, project_id)
+    if not project: raise HTTPException(404, "Project not found")
+    updates = payload.model_dump(exclude_none=True)
+    tags = updates.pop("tags", None)
+    for key, value in updates.items():
+        setattr(project, key, value)
+    if tags is not None:
+        project.tags.clear()
+        for name in tags[:12]:
+            clean = str(name).strip().lower()[:100]
+            if not clean: continue
+            tag = (await db.execute(select(Tag).where(Tag.name == clean))).scalar_one_or_none()
+            if not tag:
+                tag = Tag(name=clean); db.add(tag); await db.flush()
+            project.tags.append(tag)
+    project.status = "ready"; project.error = None
+    await db.commit(); await db.refresh(project)
+    return await loaded_project(db, project.id)
+
+
+@router.post("/{project_id}/regenerate", response_model=ProjectOut)
+async def regenerate_project_info(project_id: uuid.UUID, background_tasks: BackgroundTasks, db: AsyncSession = Depends(get_db)):
+    project = await db.get(Project, project_id)
+    if not project: raise HTTPException(404, "Project not found")
+    project.status = "processing"; project.error = None
+    await db.commit(); await db.refresh(project)
+    background_tasks.add_task(regenerate_project, project.id)
+    return await loaded_project(db, project.id)
 
 
 @router.delete("/{project_id}", status_code=204)
@@ -71,4 +111,3 @@ async def delete_project(project_id: uuid.UUID, db: AsyncSession = Depends(get_d
     project = await db.get(Project, project_id)
     if not project: raise HTTPException(404, "Project not found")
     await db.delete(project); await db.commit()
-

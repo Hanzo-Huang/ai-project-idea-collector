@@ -131,11 +131,11 @@ No write, Actions, administration, workflow, issue, or pull-request permissions 
 ### Add a Project
 
 1. Open **Dashboard**.
-2. Paste a project URL into **Collect project**.
-3. Wait for metadata extraction and AI enrichment.
-4. Open the project from **Recently collected** or **Projects**.
+2. Paste a project URL into **Queue project**.
+3. The project is created immediately with `pending`/`processing` status.
+4. Metadata extraction and AI enrichment continue in the background while you use the app.
 
-If collection fails, the project detail records the error. The current MVP does not yet provide a reprocess button; delete and add the URL again after fixing the configuration.
+Open the project detail page to watch status refresh automatically. If collection fails or the AI output is poor, use **Regenerate AI info**. You can also manually edit title, summary, tags, requirements, RK fit, target boards, inspired ideas, and adaptation notes. Deleting a project requires a second confirmation.
 
 ### Add Automatic Sources
 
