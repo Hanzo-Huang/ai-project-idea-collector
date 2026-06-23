@@ -55,7 +55,14 @@ async def enrich_project(db: AsyncSession, project: Project, item: CollectedProj
     project.idea_value = float(analysis.get("idea_value", 0)); project.inspired_ideas = analysis.get("inspired_ideas", [])
     project.stars = item.stars; project.views = item.views; project.likes = item.likes
     project.external_created_at = item.external_created_at; project.external_updated_at = item.external_updated_at
-    project.extra = item.extra; project.status = "ready"; project.error = None
+    project.extra = {
+        **item.extra,
+        "target_platforms": analysis.get("target_platforms", []),
+        "rk_compatibility": analysis.get("rk_compatibility", 0),
+        "adaptation_notes": analysis.get("adaptation_notes", []),
+        "big_event_relevance": analysis.get("big_event_relevance", False),
+    }
+    project.status = "ready"; project.error = None
     project.documents.append(RawDocument(content=item.content, metadata_={"source_type": item.source_type}))
     for name in analysis.get("tags", [])[:12]:
         clean = str(name).strip().lower()[:100]
@@ -65,7 +72,7 @@ async def enrich_project(db: AsyncSession, project: Project, item: CollectedProj
         project.tags.append(tag)
     db.add(MetricHistory(project_id=project.id, stars=item.stars, views=item.views, likes=item.likes))
     await db.commit(); await db.refresh(project)
-    vector = await embed_text(f"{project.title}\n{project.summary}\n{' '.join(t.name for t in project.tags)}", settings)
+    vector = await embed_text(f"{project.title}\n{project.summary}\n{' '.join(t.name for t in project.tags)}\nRK compatibility: {project.extra.get('rk_compatibility', 0)}\nPlatforms: {' '.join(project.extra.get('target_platforms') or [])}", settings)
     if vector: await store_vector(db, project, vector, settings)
 
 

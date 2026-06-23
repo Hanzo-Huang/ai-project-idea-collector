@@ -23,7 +23,11 @@ async def chat(payload: ChatRequest, db: AsyncSession = Depends(get_db)):
     projects = (await db.execute(stmt.order_by(Project.idea_value.desc()).limit(8))).scalars().all()
     if not projects: projects = (await db.execute(select(Project).where(Project.status == "ready").order_by(Project.idea_value.desc()).limit(8))).scalars().all()
     citations = [ChatCitation(id=p.id, title=p.title, url=p.url) for p in projects]
-    context = "\n".join(f"[{i+1}] {p.title}: {p.summary} URL: {p.url}" for i, p in enumerate(projects))
+    context = "\n".join(
+        f"[{i+1}] {p.title}: {p.summary} RK compatibility: {p.extra.get('rk_compatibility', 0)}/10. "
+        f"Targets: {', '.join(p.extra.get('target_platforms') or []) or 'unknown'}. URL: {p.url}"
+        for i, p in enumerate(projects)
+    )
     settings = await resolved_settings(db)
     if not settings.get("llm_api_key"):
         answer = "Here are the closest projects in your collection:\n\n" + "\n".join(f"- {p.title}: {p.summary[:180]} ({p.url})" for p in projects)
@@ -33,9 +37,9 @@ async def chat(payload: ChatRequest, db: AsyncSession = Depends(get_db)):
         {
             "role": "system",
             "content": (
-                "You are the AI Project Idea Collector assistant. Use only the supplied project context for project recommendations, comparisons, and idea generation. "
+                "You are the AI Project Idea Collector assistant for RK3576/RK3588 edge AI project discovery. Use only the supplied project context for project recommendations, comparisons, and idea generation. "
                 "Cite relevant projects as [1], [2]. If the context does not contain enough evidence, say that clearly and suggest what to collect next. "
-                "Be concise, fluent, and do not invent sources."
+                "Prioritize Rockchip NPU deployability, camera/audio/robotics demos, RKNN/ONNX paths, and major AI events that can inspire board content. Be concise, fluent, and do not invent sources."
             ),
         },
         *clean_history(payload.history),

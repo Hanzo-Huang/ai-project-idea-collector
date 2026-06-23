@@ -19,8 +19,8 @@ class AppConfig(BaseSettings):
     embedding_model: str = "text-embedding-3-small"
     collector_interval: int = 60
     auto_collection_enabled: bool = True
-    classification_prompt: str = "Classify this AI project accurately and return JSON."
-    source_filtering_prompt: str = "Keep useful, substantive AI projects and demos."
+    classification_prompt: str = "Classify this item for RK3576/RK3588 AI project discovery. Prefer edge AI, NPU deployability, computer vision, audio, robotics, agents, multimodal demos, and major AI events that can inspire Rockchip board content."
+    source_filtering_prompt: str = "Keep useful AI projects, demos, model releases, tutorials, hardware deployments, and major AI events that could inspire RK3576/RK3588 content."
     github_token: str = ""
     app_api_key: str = ""
     mcp_api_key: str = ""

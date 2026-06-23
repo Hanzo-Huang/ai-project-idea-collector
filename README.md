@@ -1,12 +1,14 @@
 # AI Project Idea Collector
 
-AI Project Idea Collector is a self-hosted application for collecting AI projects from URLs and scheduled sources, enriching them with an OpenAI-compatible model, searching them by keywords or embeddings, and turning the collection into new project ideas.
+AI Project Idea Collector is a self-hosted application for collecting AI projects, demos, tutorials, model releases, and AI events, then turning them into RK3576/RK3588 edge AI project ideas.
 
 ## Features
 
 - Manual collection from GitHub, Hugging Face, Hackster, YouTube, articles, documentation, and generic webpages
 - Scheduled GitHub and RSS source collection
 - AI summaries, classification, tags, difficulty, requirements, idea value, and inspired ideas
+- RK3576/RK3588 compatibility scoring, target-board hints, and adaptation notes
+- AI event/trend tracking for model releases, papers, launches, and ecosystem signals
 - Keyword and Qdrant-backed semantic search
 - Grounded chat with project URL citations
 - Source management and collection logs in PostgreSQL
@@ -144,6 +146,26 @@ If collection fails, the project detail records the error. The current MVP does 
 
 GitHub user/search and RSS sources perform multi-item scans. Hackster, Hugging Face, YouTube, and blog adapters currently normalize a supplied page; provider-specific channel, organization, and tag enumeration remains future work.
 
+### Recommended Idea Sources
+
+Good RK3576/RK3588 project ideas usually come from four places:
+
+- **Rockchip/edge deployment:** search GitHub for `rknn`, `rk3588`, `rk3576`, `rockchip npu`, `onnx rknn`, `yolo rknn`, `rknn-toolkit2`.
+- **Computer vision demos:** collect YOLO, OCR, segmentation, VLM, smart camera, industrial inspection, face/gesture, and multi-camera demos.
+- **Audio/robotics/agents:** collect STT/TTS, wake word, voice assistant, browser/coding agents, robotics agents, ROS, and home assistant projects that could run partly on-device.
+- **AI big events:** collect RSS/blog/news for model launches, new open-source VLM/SLM releases, benchmark breakthroughs, conferences, and hardware ecosystem updates.
+
+Useful starting sources:
+
+- GitHub search source: `rknn OR rk3588 OR rk3576 OR "rockchip npu" OR "rknn-toolkit2"`
+- GitHub search source: `yolo onnx edge ai camera`
+- GitHub search source: `vlm edge ai robot`
+- GitHub search source: `ocr invoice onnx`
+- RSS/blog sources: Hugging Face blog, OpenCV blog, Ultralytics blog, Roboflow blog, Edge Impulse blog, Seeed Studio blog/wiki, Hackster AI, Papers with Code trending, The Batch, Import AI.
+- YouTube/blog watchlist: edge AI demos, RK3588 demos, robotics agents, smart camera projects, industrial AI inspection, local VLM/LLM demos.
+
+The classifier stores `RK fit`, `target boards`, `adaptation notes`, and `AI event / trend` signals on each project detail page.
+
 ### Search Projects
 
 The **Projects** page supports keyword search, type/source/difficulty filters, sorting, and optional semantic search. Semantic search applies only to projects collected after a working embedding model was configured; the MVP does not yet include bulk reindexing.
@@ -155,6 +177,8 @@ Open **AI Chat** and ask questions such as:
 - `Find edge AI projects using YOLO.`
 - `Give me ideas based on robotics agents.`
 - `Which projects could become technical wiki articles?`
+- `Which collected ideas are best for RK3588?`
+- `Show AI events that could become RK3576 demo content.`
 
 Answers use collected project context and include links to original sources.
 
