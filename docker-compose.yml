@@ -26,7 +26,7 @@ services:
       retries: 10
 
   backend:
-    image: ${BACKEND_IMAGE:-collector-backend:local}
+    image: collector-backend:local
     build: ./backend
     env_file:
       - path: .env
@@ -41,7 +41,7 @@ services:
     restart: unless-stopped
 
   worker:
-    image: ${BACKEND_IMAGE:-collector-backend:local}
+    image: collector-backend:local
     command: ["python", "-m", "app.worker.main"]
     env_file:
       - path: .env
@@ -55,13 +55,13 @@ services:
     restart: unless-stopped
 
   frontend:
-    image: ${FRONTEND_IMAGE:-collector-frontend:local}
+    image: collector-frontend:local
     build:
       context: ./frontend
       args:
         INTERNAL_API_URL: ${INTERNAL_API_URL:-http://backend:8000}
     depends_on: [backend]
-    ports: ["${FRONTEND_BIND_ADDRESS:-0.0.0.0}:3000:3000"]
+    ports: ["${FRONTEND_BIND_ADDRESS:-127.0.0.1}:3000:3000"]
     restart: unless-stopped
 
 volumes:

@@ -196,24 +196,54 @@ docker compose up -d --build
 
 By default:
 
-- Frontend listens on `0.0.0.0:3000`.
+- Frontend listens on `127.0.0.1:3000`.
 - Backend listens on `127.0.0.1:8000`.
 - PostgreSQL and Qdrant listen on localhost only.
 
-Do not expose ports `5432` or `6333` to the internet. To expose MCP through a host reverse proxy, keep the backend on `127.0.0.1:8000`. Set `BACKEND_BIND_ADDRESS=0.0.0.0` only when a firewall or containerized proxy requires it.
+Do not expose ports `5432` or `6333` to the internet. Keep the frontend and backend on `127.0.0.1` when using host-level Nginx, Caddy, or Traefik. Set a bind address to `0.0.0.0` only when a firewall or containerized proxy requires it.
 
-### HTTPS Reverse Proxy
+### Nginx Reverse Proxy
 
-Put Caddy, Nginx, Traefik, or a managed load balancer in front of the application. A host-level Caddy example:
+Put Nginx in front of the localhost-only Docker services:
 
-```caddyfile
-collector.example.com {
-    reverse_proxy 127.0.0.1:3000
+```nginx
+server {
+    listen 80;
+    server_name collector.example.com;
+
+    location / {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
 }
+```
 
-api.collector.example.com {
-    reverse_proxy 127.0.0.1:8000
+If you want direct API or MCP access from ChatGPT, Gemini, or another external client, add a separate API hostname:
+
+```nginx
+server {
+    listen 80;
+    server_name collector-api.example.com;
+
+    location / {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
 }
+```
+
+Then enable HTTPS:
+
+```bash
+sudo certbot --nginx -d collector.example.com -d collector-api.example.com
 ```
 
 The frontend normally reaches FastAPI through its same-origin `/backend-api` proxy. The API domain is only required for direct OpenAPI or MCP access. Restrict `/docs` in a public deployment if it is not needed.
@@ -223,24 +253,17 @@ The frontend normally reaches FastAPI through its same-origin `/backend-api` pro
 The workflow at `.github/workflows/docker-publish.yml` publishes two multi-architecture images to GitHub Container Registry after pushes to the default branch and tags matching `v*`:
 
 ```text
-ghcr.io/OWNER/REPOSITORY/backend:latest
-ghcr.io/OWNER/REPOSITORY/frontend:latest
+ghcr.io/hanzo-huang/ai-project-idea-collector/backend:latest
+ghcr.io/hanzo-huang/ai-project-idea-collector/frontend:latest
 ```
 
 The worker uses the backend image with a different command. After pushing this repository to GitHub, open **Actions** and confirm **Publish Docker images** succeeds. Make the packages public in the repository package settings, or authenticate the server with a GitHub token containing `read:packages`.
 
-Configure the server's `.env`:
-
-```dotenv
-BACKEND_IMAGE=ghcr.io/OWNER/REPOSITORY/backend:latest
-FRONTEND_IMAGE=ghcr.io/OWNER/REPOSITORY/frontend:latest
-```
-
-Then deploy without building on the server:
+Deploy without building on the server:
 
 ```bash
-docker compose pull
-docker compose up -d --no-build
+docker compose -f docker-compose.yml -f docker-compose.images.yml pull
+docker compose -f docker-compose.yml -f docker-compose.images.yml up -d --no-build
 ```
 
 Container archives should not be committed to Git. GHCR stores versioned image layers next to the repository and is the appropriate distribution mechanism.
@@ -269,8 +292,8 @@ docker compose up -d --build
 Update a GHCR deployment:
 
 ```bash
-docker compose pull
-docker compose up -d --no-build
+docker compose -f docker-compose.yml -f docker-compose.images.yml pull
+docker compose -f docker-compose.yml -f docker-compose.images.yml up -d --no-build
 ```
 
 Back up PostgreSQL:
