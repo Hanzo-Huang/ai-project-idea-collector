@@ -220,7 +220,7 @@ The frontend normally reaches FastAPI through its same-origin `/backend-api` pro
 
 ### Deploy Prebuilt GitHub Container Images
 
-The workflow at `.github/workflows/docker-publish.yml` publishes two Linux AMD64 images to GitHub Container Registry after pushes to the default branch and tags matching `v*`:
+The workflow at `.github/workflows/docker-publish.yml` publishes two multi-architecture images to GitHub Container Registry after pushes to the default branch and tags matching `v*`:
 
 ```text
 ghcr.io/OWNER/REPOSITORY/backend:latest
@@ -245,7 +245,7 @@ docker compose up -d --no-build
 
 Container archives should not be committed to Git. GHCR stores versioned image layers next to the repository and is the appropriate distribution mechanism.
 
-The hosted workflow targets AMD64 because emulated ARM64 Node dependency installs are unreliable on GitHub's x86 runners. On an ARM server or Apple Silicon machine, `docker compose up --build -d` builds native ARM images locally.
+The workflow builds AMD64 on `ubuntu-24.04` and ARM64 on GitHub's native `ubuntu-24.04-arm` runner, then combines both digests into each published tag. This avoids the slow QEMU emulation that caused the earlier ARM64 frontend build to be canceled.
 
 ### Vercel Frontend
 

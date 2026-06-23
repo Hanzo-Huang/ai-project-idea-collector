@@ -11,40 +11,96 @@ permissions:
   packages: write
 
 jobs:
-  publish:
-    runs-on: ubuntu-latest
+  build:
+    name: Build ${{ matrix.component.name }} (${{ matrix.target.arch }})
     strategy:
       fail-fast: false
       matrix:
-        include:
+        component:
           - name: backend
             context: ./backend
           - name: frontend
             context: ./frontend
+        target:
+          - arch: amd64
+            platform: linux/amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            platform: linux/arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.target.runner }}
+    env:
+      IMAGE_NAME: ghcr.io/${{ github.repository }}/${{ matrix.component.name }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: docker/metadata-action@v5
+      - uses: docker/build-push-action@v7
+        id: build
+        with:
+          context: ${{ matrix.component.context }}
+          platforms: ${{ matrix.target.platform }}
+          tags: ${{ env.IMAGE_NAME }}
+          outputs: type=image,name=${{ env.IMAGE_NAME }},push-by-digest=true,name-canonical=true,push=true
+          cache-from: type=gha,scope=${{ matrix.component.name }}-${{ matrix.target.arch }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.component.name }}-${{ matrix.target.arch }}
+      - name: Export digest
+        run: |
+          mkdir -p /tmp/digests
+          digest="${{ steps.build.outputs.digest }}"
+          touch "/tmp/digests/${digest#sha256:}"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: digests-${{ matrix.component.name }}-${{ matrix.target.arch }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  merge:
+    name: Publish ${{ matrix.component }} manifest
+    needs: build
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        component: [backend, frontend]
+    env:
+      IMAGE_NAME: ghcr.io/${{ github.repository }}/${{ matrix.component }}
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          path: /tmp/digests
+          pattern: digests-${{ matrix.component }}-*
+          merge-multiple: true
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/metadata-action@v6
         id: meta
         with:
-          images: ghcr.io/${{ github.repository }}/${{ matrix.name }}
+          images: ${{ env.IMAGE_NAME }}
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
             type=ref,event=tag
             type=sha,prefix=sha-
-      - uses: docker/build-push-action@v6
-        with:
-          context: ${{ matrix.context }}
-          push: true
-          # GitHub's x86 runner builds this natively. Cross-building the Next.js
-          # dependency stage under QEMU is slow and can be canceled mid-install.
-          platforms: linux/amd64
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha,scope=${{ matrix.name }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.name }}
+      - name: Create multi-architecture manifest
+        working-directory: /tmp/digests
+        run: |
+          args=()
+          while IFS= read -r tag; do
+            args+=("-t" "$tag")
+          done < <(jq -r '.tags[]' <<< "$DOCKER_METADATA_OUTPUT_JSON")
+          for digest in *; do
+            args+=("${IMAGE_NAME}@sha256:${digest}")
+          done
+          docker buildx imagetools create "${args[@]}"
+      - name: Inspect published image
+        run: |
+          tag="$(jq -r '.tags[0]' <<< "$DOCKER_METADATA_OUTPUT_JSON")"
+          docker buildx imagetools inspect "$tag"
