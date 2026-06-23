@@ -82,6 +82,8 @@ class SettingsUpdate(BaseModel):
     llm_base_url: str | None = None
     llm_api_key: str | None = None
     llm_model: str | None = None
+    classification_model: str | None = None
+    chat_model: str | None = None
     embedding_provider: Literal["openai", "ollama"] | None = None
     embedding_base_url: str | None = None
     embedding_api_key: str | None = None
@@ -108,4 +110,3 @@ class ChatCitation(BaseModel):
 class ChatResponse(BaseModel):
     answer: str
     citations: list[ChatCitation]
-

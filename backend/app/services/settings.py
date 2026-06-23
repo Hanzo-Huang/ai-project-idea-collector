@@ -6,9 +6,10 @@ from app.models import Setting
 
 SECRET_KEYS = {"llm_api_key", "embedding_api_key"}
 SETTING_KEYS = {
-    "llm_base_url", "llm_api_key", "llm_model", "embedding_provider", "embedding_base_url",
-    "embedding_api_key", "embedding_model", "qdrant_url", "postgres_url", "collector_interval",
-    "classification_prompt", "source_filtering_prompt", "auto_collection_enabled",
+    "llm_base_url", "llm_api_key", "llm_model", "classification_model", "chat_model",
+    "embedding_provider", "embedding_base_url", "embedding_api_key", "embedding_model",
+    "qdrant_url", "postgres_url", "collector_interval", "classification_prompt",
+    "source_filtering_prompt", "auto_collection_enabled",
 }
 
 
@@ -20,6 +21,8 @@ async def resolved_settings(db: AsyncSession) -> dict[str, str | int | bool]:
         if row.key in {"collector_interval"}: values[row.key] = int(row.value)
         elif row.key == "auto_collection_enabled": values[row.key] = row.value.lower() == "true"
         else: values[row.key] = row.value
+    if not values.get("classification_model"): values["classification_model"] = values["llm_model"]
+    if not values.get("chat_model"): values["chat_model"] = values["llm_model"]
     return values
 
 
@@ -38,4 +41,3 @@ async def save_settings(db: AsyncSession, updates: dict) -> None:
         if row: row.value = text
         else: db.add(Setting(key=key, value=text, is_secret=key in SECRET_KEYS))
     await db.commit()
-

@@ -31,7 +31,7 @@ async def analyze_project(title: str, description: str, content: str, extra: dic
 Return strict JSON with: summary, project_type, subtype, tags (array), difficulty (Beginner/Intermediate/Advanced), hardware_requirements (array), software_requirements (array), idea_value (0-10), inspired_ideas (array).
 Allowed project types: {PROJECT_TYPES}.
 Title: {title}\nDescription: {description}\nContent: {content[:12000]}'''
-    response = await client.chat.completions.create(model=str(settings["llm_model"]), messages=[{"role": "user", "content": prompt}], response_format={"type": "json_object"}, temperature=0.2)
+    response = await client.chat.completions.create(model=str(settings["classification_model"]), messages=[{"role": "user", "content": prompt}], response_format={"type": "json_object"}, temperature=0.2)
     return json.loads(response.choices[0].message.content or "{}")
 
 
@@ -48,4 +48,3 @@ async def embed_text(text: str, settings: dict) -> list[float] | None:
     client = AsyncOpenAI(api_key=str(settings["embedding_api_key"]), base_url=str(settings["embedding_base_url"]))
     result = await client.embeddings.create(model=str(settings["embedding_model"]), input=text[:8000])
     return result.data[0].embedding
-

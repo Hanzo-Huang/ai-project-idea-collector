@@ -1,8 +1,132 @@
 "use client";
-import { useEffect,useState } from "react";import { api } from "@/lib/api";import { ErrorState } from "@/components/page-state";
-const fields=[
- ["llm_base_url","LLM base URL","text"],["llm_api_key","LLM API key","password"],["llm_model","LLM model","text"],
- ["embedding_base_url","Embedding base URL","text"],["embedding_api_key","Embedding API key","password"],["embedding_model","Embedding model","text"],
- ["qdrant_url","Qdrant URL","text"],["postgres_url","PostgreSQL URL (restart required)","text"],["collector_interval","Collector interval (worker restart required)","number"]
+
+import { useEffect, useState } from "react";
+
+import { ErrorState } from "@/components/page-state";
+import { api } from "@/lib/api";
+
+const aiFields = [
+  ["llm_base_url", "LLM base URL", "text"],
+  ["llm_api_key", "LLM API key", "password"],
+  ["classification_model", "Classification model", "text"],
+  ["chat_model", "Chat model", "text"],
+  ["embedding_base_url", "Embedding base URL", "text"],
+  ["embedding_api_key", "Embedding API key", "password"],
+  ["embedding_model", "Embedding model", "text"],
 ] as const;
-export default function Settings(){const [form,setForm]=useState<Record<string,any>>({});const [loading,setLoading]=useState(true);const [saving,setSaving]=useState(false);const [message,setMessage]=useState("");const [error,setError]=useState("");useEffect(()=>{api.settings().then(setForm).catch(e=>setError(e.message)).finally(()=>setLoading(false))},[]);async function save(e:React.FormEvent){e.preventDefault();setSaving(true);setMessage("");try{const payload={...form};delete payload.llm_api_key_configured;delete payload.embedding_api_key_configured;if(!payload.llm_api_key)delete payload.llm_api_key;if(!payload.embedding_api_key)delete payload.embedding_api_key;setForm(await api.saveSettings(payload));setMessage("Settings saved. Model settings apply to new jobs; database and worker schedule changes require a restart.")}catch(e){setError(e instanceof Error?e.message:"Could not save settings")}finally{setSaving(false)}}if(loading)return <div className="card h-96 animate-pulse"/>;return <form className="mx-auto max-w-4xl space-y-6" onSubmit={save}><div><h1 className="text-3xl font-bold">Settings</h1><p className="mt-1 text-sm text-slate-500">Configure models and infrastructure. Secret values are never returned by the API.</p></div>{error&&<ErrorState message={error}/>} {message&&<div className="rounded-xl bg-emerald-500/10 p-4 text-sm text-emerald-600">{message}</div>}<section className="card p-6"><h2 className="text-lg font-bold">AI providers</h2><div className="mt-5 grid gap-5 md:grid-cols-2">{fields.slice(0,6).map(([key,label,type])=><label key={key}><span className="label">{label}{type==="password"&&form[`${key}_configured`]?" · configured":""}</span><input className="input" type={type} placeholder={type==="password"?"Leave blank to keep current value":""} value={form[key]??""} onChange={e=>setForm({...form,[key]:e.target.value})}/></label>)}<label><span className="label">Embedding provider</span><select className="input" value={form.embedding_provider??"openai"} onChange={e=>setForm({...form,embedding_provider:e.target.value})}><option value="openai">OpenAI-compatible</option><option value="ollama">Ollama</option></select></label></div></section><section className="card p-6"><h2 className="text-lg font-bold">Infrastructure and collection</h2><div className="mt-5 grid gap-5 md:grid-cols-2">{fields.slice(6).map(([key,label,type])=><label key={key}><span className="label">{label}</span><input className="input" type={type} value={form[key]??""} onChange={e=>setForm({...form,[key]:type==="number"?Number(e.target.value):e.target.value})}/></label>)}<label className="flex items-center gap-3 pt-7"><input type="checkbox" checked={!!form.auto_collection_enabled} onChange={e=>setForm({...form,auto_collection_enabled:e.target.checked})}/><span className="text-sm font-medium">Enable automatic collection</span></label></div></section><section className="card p-6"><h2 className="text-lg font-bold">Prompts</h2><div className="mt-5 space-y-5"><label><span className="label">Default classification prompt</span><textarea className="input min-h-28" value={form.classification_prompt??""} onChange={e=>setForm({...form,classification_prompt:e.target.value})}/></label><label><span className="label">Default source filtering prompt</span><textarea className="input min-h-28" value={form.source_filtering_prompt??""} onChange={e=>setForm({...form,source_filtering_prompt:e.target.value})}/></label></div></section><div className="flex justify-end"><button className="btn-primary" disabled={saving}>{saving?"Saving...":"Save settings"}</button></div></form>}
+
+const infrastructureFields = [
+  ["qdrant_url", "Qdrant URL", "text"],
+  ["postgres_url", "PostgreSQL URL (restart required)", "text"],
+  ["collector_interval", "Collector interval (worker restart required)", "number"],
+] as const;
+
+export default function Settings() {
+  const [form, setForm] = useState<Record<string, any>>({});
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    api.settings().then(setForm).catch(e => setError(e.message)).finally(() => setLoading(false));
+  }, []);
+
+  async function save(e: React.FormEvent) {
+    e.preventDefault();
+    setSaving(true);
+    setMessage("");
+    try {
+      const payload = { ...form };
+      delete payload.llm_api_key_configured;
+      delete payload.embedding_api_key_configured;
+      if (!payload.llm_api_key) delete payload.llm_api_key;
+      if (!payload.embedding_api_key) delete payload.embedding_api_key;
+      setForm(await api.saveSettings(payload));
+      setMessage("Settings saved. Model settings apply to new jobs; database and worker schedule changes require a restart.");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not save settings");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (loading) return <div className="card h-96 animate-pulse" />;
+
+  return (
+    <form className="mx-auto max-w-4xl space-y-6" onSubmit={save}>
+      <div>
+        <h1 className="text-3xl font-bold">Settings</h1>
+        <p className="mt-1 text-sm text-slate-500">Configure models and infrastructure. Secret values are never returned by the API.</p>
+      </div>
+
+      {error && <ErrorState message={error} />}
+      {message && <div className="rounded-xl bg-emerald-500/10 p-4 text-sm text-emerald-600">{message}</div>}
+
+      <section className="card p-6">
+        <h2 className="text-lg font-bold">AI providers</h2>
+        <p className="mt-1 text-sm text-slate-500">Use a cheap model for collection and a stronger model for chat.</p>
+        <div className="mt-5 grid gap-5 md:grid-cols-2">
+          {aiFields.map(([key, label, type]) => (
+            <label key={key}>
+              <span className="label">{label}{type === "password" && form[`${key}_configured`] ? " · configured" : ""}</span>
+              <input
+                className="input"
+                type={type}
+                placeholder={type === "password" ? "Leave blank to keep current value" : ""}
+                value={form[key] ?? ""}
+                onChange={e => setForm({ ...form, [key]: e.target.value })}
+              />
+            </label>
+          ))}
+          <label>
+            <span className="label">Embedding provider</span>
+            <select className="input" value={form.embedding_provider ?? "openai"} onChange={e => setForm({ ...form, embedding_provider: e.target.value })}>
+              <option value="openai">OpenAI-compatible</option>
+              <option value="ollama">Ollama</option>
+            </select>
+          </label>
+        </div>
+      </section>
+
+      <section className="card p-6">
+        <h2 className="text-lg font-bold">Infrastructure and collection</h2>
+        <div className="mt-5 grid gap-5 md:grid-cols-2">
+          {infrastructureFields.map(([key, label, type]) => (
+            <label key={key}>
+              <span className="label">{label}</span>
+              <input
+                className="input"
+                type={type}
+                value={form[key] ?? ""}
+                onChange={e => setForm({ ...form, [key]: type === "number" ? Number(e.target.value) : e.target.value })}
+              />
+            </label>
+          ))}
+          <label className="flex items-center gap-3 pt-7">
+            <input type="checkbox" checked={!!form.auto_collection_enabled} onChange={e => setForm({ ...form, auto_collection_enabled: e.target.checked })} />
+            <span className="text-sm font-medium">Enable automatic collection</span>
+          </label>
+        </div>
+      </section>
+
+      <section className="card p-6">
+        <h2 className="text-lg font-bold">Prompts</h2>
+        <div className="mt-5 space-y-5">
+          <label>
+            <span className="label">Default classification prompt</span>
+            <textarea className="input min-h-28" value={form.classification_prompt ?? ""} onChange={e => setForm({ ...form, classification_prompt: e.target.value })} />
+          </label>
+          <label>
+            <span className="label">Default source filtering prompt</span>
+            <textarea className="input min-h-28" value={form.source_filtering_prompt ?? ""} onChange={e => setForm({ ...form, source_filtering_prompt: e.target.value })} />
+          </label>
+        </div>
+      </section>
+
+      <div className="flex justify-end">
+        <button className="btn-primary" disabled={saving}>{saving ? "Saving..." : "Save settings"}</button>
+      </div>
+    </form>
+  );
+}

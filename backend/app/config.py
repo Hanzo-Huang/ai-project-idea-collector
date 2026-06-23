@@ -11,6 +11,8 @@ class AppConfig(BaseSettings):
     llm_base_url: str = "https://api.openai.com/v1"
     llm_api_key: str = ""
     llm_model: str = "gpt-4o-mini"
+    classification_model: str = ""
+    chat_model: str = ""
     embedding_provider: str = "openai"
     embedding_base_url: str = "https://api.openai.com/v1"
     embedding_api_key: str = ""

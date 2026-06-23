@@ -41,5 +41,5 @@ async def chat(payload: ChatRequest, db: AsyncSession = Depends(get_db)):
         *clean_history(payload.history),
         {"role": "user", "content": f"PROJECT CONTEXT:\n{context or 'No matching projects found.'}\n\nQUESTION: {payload.message}"},
     ]
-    response = await client.chat.completions.create(model=str(settings["llm_model"]), messages=messages, temperature=0.1, max_tokens=700)
+    response = await client.chat.completions.create(model=str(settings["chat_model"]), messages=messages, temperature=0.1, max_tokens=700)
     return ChatResponse(answer=response.choices[0].message.content or "", citations=citations)

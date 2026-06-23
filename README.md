@@ -84,12 +84,13 @@ docker compose down
 
 ## Configure AI
 
-The application has two AI configurations because they perform different jobs:
+The application has three AI model settings because they perform different jobs:
 
-- **LLM:** generates summaries, classifications, tags, ideas, and chat answers.
+- **Classification model:** generates summaries, classifications, tags, requirements, and inspired ideas during collection.
+- **Chat model:** answers questions over your collected projects.
 - **Embedding model:** converts text into vectors for semantic search.
 
-Both can use the same provider, base URL, and API key, but they require different model names.
+They can use the same provider, base URL, and API key, but they may use different model names. A good cost pattern is cheap classification plus stronger chat.
 
 ### Cheapest SiliconFlow Setup
 
@@ -98,13 +99,14 @@ Open **Settings** and use:
 | Setting | Value |
 | --- | --- |
 | LLM base URL | `https://api.siliconflow.cn/v1` |
-| LLM model | `Qwen/Qwen2.5-7B-Instruct` |
+| Classification model | `Qwen/Qwen2.5-7B-Instruct` |
+| Chat model | `Qwen/Qwen2.5-32B-Instruct` |
 | Embedding provider | `openai` |
 | Embedding base URL | `https://api.siliconflow.cn/v1` |
 | Embedding model | `BAAI/bge-m3` |
 | API keys | The same SiliconFlow key may be entered in both fields |
 
-These two models are currently listed by SiliconFlow as free. Provider pricing and availability can change, so check the provider catalog before a large import.
+Use `Qwen/Qwen2.5-7B-Instruct` for chat too if you want the lowest possible cost, but a larger chat model gives more stable grounded answers. Provider pricing and availability can change, so check the provider catalog before a large import.
 
 Without AI credentials, collection still works using deterministic fallback classification. Semantic embeddings and model-generated chat require configured credentials.
 
