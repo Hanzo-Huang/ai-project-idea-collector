@@ -137,6 +137,8 @@ No write, Actions, administration, workflow, issue, or pull-request permissions 
 
 Open the project detail page to watch status refresh automatically. If collection fails or the AI output is poor, use **Regenerate AI info**. You can also manually edit title, summary, tags, requirements, RK fit, target boards, inspired ideas, and adaptation notes. Deleting a project requires a second confirmation.
 
+Use the **Tasks** button in the top bar to see active project imports, failed enrichment jobs, and recent source collection runs.
+
 ### Add Automatic Sources
 
 1. Open **Sources** and select **Add source**.

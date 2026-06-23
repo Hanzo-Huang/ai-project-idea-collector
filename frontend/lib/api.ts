@@ -1,4 +1,4 @@
-import type { Project, Source } from "@/types";
+import type { Project, Source, TaskStatus } from "@/types";
 const API = process.env.NEXT_PUBLIC_API_URL || "/backend-api";
 const TOKEN_KEY="collector_api_key";
 export function getApiToken(){return typeof window==="undefined"?"":localStorage.getItem(TOKEN_KEY)||""}
@@ -9,5 +9,5 @@ export const api={
  authStatus:()=>request<{required:boolean}>("/auth/status"),verifyAuth:()=>request<{authenticated:boolean}>("/auth/verify"),
  projects:(params="")=>request<{items:Project[];total:number;page:number;page_size:number}>(`/projects${params}`), project:(id:string)=>request<Project>(`/projects/${id}`), addProject:(url:string)=>request<Project>("/projects",{method:"POST",body:JSON.stringify({url})}), updateProject:(id:string,data:Record<string,unknown>)=>request<Project>(`/projects/${id}`,{method:"PATCH",body:JSON.stringify(data)}), regenerateProject:(id:string)=>request<Project>(`/projects/${id}/regenerate`,{method:"POST"}), deleteProject:(id:string)=>request<void>(`/projects/${id}`,{method:"DELETE"}),
  sources:()=>request<Source[]>("/sources"), addSource:(data:Partial<Source>)=>request<Source>("/sources",{method:"POST",body:JSON.stringify(data)}), updateSource:(id:string,data:Partial<Source>)=>request<Source>(`/sources/${id}`,{method:"PATCH",body:JSON.stringify(data)}), collectSource:(id:string)=>request<{found:number;added:number}>(`/sources/${id}/collect`,{method:"POST"}),
- settings:()=>request<Record<string,unknown>>("/settings"), saveSettings:(data:Record<string,unknown>)=>request<Record<string,unknown>>("/settings",{method:"PUT",body:JSON.stringify(data)}), stats:()=>request<any>("/dashboard/stats"), chat:(message:string,history:{role:string;content:string}[])=>request<{answer:string;citations:{id:string;title:string;url:string}[]}>("/chat",{method:"POST",body:JSON.stringify({message,history})})
+ settings:()=>request<Record<string,unknown>>("/settings"), saveSettings:(data:Record<string,unknown>)=>request<Record<string,unknown>>("/settings",{method:"PUT",body:JSON.stringify(data)}), stats:()=>request<any>("/dashboard/stats"), tasks:()=>request<TaskStatus>("/dashboard/tasks"), chat:(message:string,history:{role:string;content:string}[])=>request<{answer:string;citations:{id:string;title:string;url:string}[]}>("/chat",{method:"POST",body:JSON.stringify({message,history})})
 };
