@@ -1,9 +1,0 @@
-services:
-  backend:
-    image: ghcr.io/hanzo-huang/ai-project-idea-collector/backend:latest
-
-  worker:
-    image: ghcr.io/hanzo-huang/ai-project-idea-collector/backend:latest
-
-  frontend:
-    image: ghcr.io/hanzo-huang/ai-project-idea-collector/frontend:latest

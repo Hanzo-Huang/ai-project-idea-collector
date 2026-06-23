@@ -26,8 +26,7 @@ services:
       retries: 10
 
   backend:
-    image: collector-backend:local
-    build: ./backend
+    image: ghcr.io/hanzo-huang/ai-project-idea-collector/backend:latest
     env_file:
       - path: .env
         required: false
@@ -41,7 +40,7 @@ services:
     restart: unless-stopped
 
   worker:
-    image: collector-backend:local
+    image: ghcr.io/hanzo-huang/ai-project-idea-collector/backend:latest
     command: ["python", "-m", "app.worker.main"]
     env_file:
       - path: .env
@@ -55,11 +54,7 @@ services:
     restart: unless-stopped
 
   frontend:
-    image: collector-frontend:local
-    build:
-      context: ./frontend
-      args:
-        INTERNAL_API_URL: ${INTERNAL_API_URL:-http://backend:8000}
+    image: ghcr.io/hanzo-huang/ai-project-idea-collector/frontend:latest
     depends_on: [backend]
     ports: ["${FRONTEND_BIND_ADDRESS:-127.0.0.1}:3000:3000"]
     restart: unless-stopped

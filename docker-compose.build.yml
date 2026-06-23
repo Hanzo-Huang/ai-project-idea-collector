@@ -1,0 +1,14 @@
+services:
+  backend:
+    image: collector-backend:local
+    build: ./backend
+
+  worker:
+    image: collector-backend:local
+
+  frontend:
+    image: collector-frontend:local
+    build:
+      context: ./frontend
+      args:
+        INTERNAL_API_URL: ${INTERNAL_API_URL:-http://backend:8000}

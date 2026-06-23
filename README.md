@@ -65,7 +65,8 @@ POSTGRES_PASSWORD=replace-with-another-random-value
 Start the stack:
 
 ```bash
-docker compose up -d --build
+docker compose pull
+docker compose up -d
 docker compose ps
 ```
 
@@ -182,7 +183,7 @@ Hosted ChatGPT or Gemini-compatible clients cannot reach `localhost`. Deploy the
 
 ## Production Deployment
 
-### Docker Compose From Source
+### Docker Compose With Prebuilt Images
 
 On a Linux server:
 
@@ -191,7 +192,8 @@ git clone <repository-url>
 cd collector
 cp .env.example .env
 # Configure APP_API_KEY, MCP_API_KEY, POSTGRES_PASSWORD, AI credentials, and GitHub token.
-docker compose up -d --build
+docker compose pull
+docker compose up -d
 ```
 
 By default:
@@ -248,7 +250,7 @@ sudo certbot --nginx -d collector.example.com -d collector-api.example.com
 
 The frontend normally reaches FastAPI through its same-origin `/backend-api` proxy. The API domain is only required for direct OpenAPI or MCP access. Restrict `/docs` in a public deployment if it is not needed.
 
-### Deploy Prebuilt GitHub Container Images
+### Published Container Images
 
 The workflow at `.github/workflows/docker-publish.yml` publishes two multi-architecture images to GitHub Container Registry after pushes to the default branch and tags matching `v*`:
 
@@ -258,13 +260,6 @@ ghcr.io/hanzo-huang/ai-project-idea-collector/frontend:latest
 ```
 
 The worker uses the backend image with a different command. After pushing this repository to GitHub, open **Actions** and confirm **Publish Docker images** succeeds. Make the packages public in the repository package settings, or authenticate the server with a GitHub token containing `read:packages`.
-
-Deploy without building on the server:
-
-```bash
-docker compose -f docker-compose.yml -f docker-compose.images.yml pull
-docker compose -f docker-compose.yml -f docker-compose.images.yml up -d --no-build
-```
 
 Container archives should not be committed to Git. GHCR stores versioned image layers next to the repository and is the appropriate distribution mechanism.
 
@@ -282,18 +277,12 @@ FastAPI, the persistent worker, PostgreSQL, and Qdrant must still run on a conta
 
 ## Updates and Backups
 
-Update a source deployment:
+Update a server deployment:
 
 ```bash
 git pull
-docker compose up -d --build
-```
-
-Update a GHCR deployment:
-
-```bash
-docker compose -f docker-compose.yml -f docker-compose.images.yml pull
-docker compose -f docker-compose.yml -f docker-compose.images.yml up -d --no-build
+docker compose pull
+docker compose up -d
 ```
 
 Back up PostgreSQL:
@@ -311,6 +300,12 @@ docker compose exec -T postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB
 Also back up the `postgres_data` and `qdrant_data` Docker volumes before server migrations or destructive maintenance.
 
 ## Local Development
+
+The default Compose file uses published images. To build local source changes into containers, add `docker-compose.build.yml`:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
+```
 
 Start PostgreSQL and Qdrant:
 
@@ -357,7 +352,7 @@ npm ci
 npm run build
 
 docker compose config --quiet
-docker compose build
+docker compose -f docker-compose.yml -f docker-compose.build.yml build
 ```
 
 GitHub Actions runs backend tests and the frontend production build for pull requests and pushes to `main` or `master`.
@@ -366,10 +361,10 @@ GitHub Actions runs backend tests and the frontend production build for pull req
 
 ### Login says `Failed to fetch`
 
-Rebuild the frontend so it uses the same-origin API proxy:
+If you are developing locally, rebuild the frontend so it uses the same-origin API proxy:
 
 ```bash
-docker compose up -d --build frontend
+docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build frontend
 curl http://localhost:3000/backend-api/auth/status
 ```
 
